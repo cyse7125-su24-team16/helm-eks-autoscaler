@@ -1,0 +1,34 @@
+replicas: 1
+
+image:
+  repository: registry.k8s.io/autoscaling/cluster-autoscaler
+  tag: v1.29.3
+  pullPolicy: Always
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 300Mi
+  requests:
+    cpu: 100m
+    memory: 300Mi
+
+rbac:
+  serviceAccountName: cluster-autoscaler
+  clusterRoleName: cluster-autoscaler
+  roleName: cluster-autoscaler
+  roleBindingName: cluster-autoscaler
+  clusterRoleBindingName: cluster-autoscaler
+
+autoscalerNamespace: kube-system
+
+annotations:
+  eks.amazonaws.com/role-arn: arn:aws:iam::767398141113:role/AmazonEKSClusterAutoscalerRole
+
+autoscaler:
+  cloudProvider: aws
+  expander: least-waste
+  nodeGroupAutoDiscovery: asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/EKS-Cluster
+  balanceSimilarNodeGroups: true
+  skipNodesWithLocalStorage: false
+  skipNodesWithSystemPods: false

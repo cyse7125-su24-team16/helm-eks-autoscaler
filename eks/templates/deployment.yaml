@@ -1,0 +1,50 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-autoscaler
+  namespace: {{ .Values.autoscalerNamespace }}
+  labels:
+    app: cluster-autoscaler
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: cluster-autoscaler
+  template:
+    metadata:
+      labels:
+        app: cluster-autoscaler
+      annotations:
+        cluster-autoscaler.kubernetes.io/safe-to-evict: 'false'
+    spec:
+      serviceAccountName: {{ .Values.rbac.serviceAccountName }}
+      containers:
+        - image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          name: cluster-autoscaler
+          resources:
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+          command: 
+            - ./cluster-autoscaler
+            - --v=4
+            - --stderrthreshold=info
+            - --cloud-provider={{ .Values.autoscaler.cloudProvider }}
+            - --skip-nodes-with-local-storage={{ .Values.autoscaler.skipNodesWithLocalStorage }}
+            - --expander={{ .Values.autoscaler.expander }}
+            - --node-group-auto-discovery={{ .Values.autoscaler.nodeGroupAutoDiscovery }}
+            - --balance-similar-node-groups={{ .Values.autoscaler.balanceSimilarNodeGroups }}
+            - --skip-nodes-with-system-pods={{ .Values.autoscaler.skipNodesWithSystemPods }}
+          volumeMounts:
+            - name: ssl-certs
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              readOnly: true
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+      volumes:
+        - name: ssl-certs
+          hostPath:
+            path: "/etc/ssl/certs/ca-bundle.crt"
