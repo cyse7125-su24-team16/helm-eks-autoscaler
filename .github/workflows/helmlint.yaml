@@ -1,0 +1,22 @@
+name: Chart Validation
+on:
+    pull_request:
+        branches: [ main ]
+        
+jobs:
+    build:
+        name: chart-validation
+        runs-on: ubuntu-latest
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v2
+
+          - name: Lint Helm
+            uses: WyriHaximus/github-action-helm3@v3
+            with:
+              exec: helm lint .
+      
+          - name: Validate Helm Template
+            uses: WyriHaximus/github-action-helm3@v3
+            with:
+              exec: helm template .
