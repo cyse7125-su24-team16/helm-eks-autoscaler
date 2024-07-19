@@ -19,6 +19,8 @@ spec:
         cluster-autoscaler.kubernetes.io/safe-to-evict: 'false'
     spec:
       serviceAccountName: {{ .Values.rbac.serviceAccountName }}
+      imagePullSecrets:
+        - name: {{ .Values.secrets.myregistrykey.name }}
       containers:
         - image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           name: cluster-autoscaler
@@ -39,6 +41,13 @@ spec:
             - --node-group-auto-discovery={{ .Values.autoscaler.nodeGroupAutoDiscovery }}
             - --balance-similar-node-groups={{ .Values.autoscaler.balanceSimilarNodeGroups }}
             - --skip-nodes-with-system-pods={{ .Values.autoscaler.skipNodesWithSystemPods }}
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.deployment.awsRegion }}
+            - name: AWS_ACCESS_KEY_ID
+              value: {{.Values.deployment.AWS_ACCESS_KEY_ID}}
+            - name: AWS_SECRET_ACCESS_KEY
+              value: {{.Values.deployment.AWS_SECRET_ACCESS_KEY}}
           volumeMounts:
             - name: ssl-certs
               mountPath: /etc/ssl/certs/ca-certificates.crt

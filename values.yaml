@@ -1,0 +1,44 @@
+replicas: {$replicas}
+
+image:
+  repository: {$repository}
+  tag: {$tag}
+  pullPolicy: {$policy}
+
+resources:
+  limits:
+    cpu: {$cpu}
+    memory: {$memory}
+  requests:
+    cpu: {$cpu}
+    memory: {$memory}
+
+deployment:
+  awsRegion: {$region}
+  AWS_ACCESS_KEY_ID: {$key}
+  AWS_SECRET_ACCESS_KEY: {$secretkey}
+
+rbac:
+  serviceAccountName: {$sa}
+  clusterRoleName: {$clusterrole}
+  roleName: {$rolename}
+  roleBindingName: {$rolebinding}
+  clusterRoleBindingName: {$rolebindingname}
+
+autoscalerNamespace: {$namespace}
+
+annotations:
+  eks.amazonaws.com/role-arn: {$arn}
+
+autoscaler:
+  cloudProvider: {$provider}
+  expander: {$expander}
+  nodeGroupAutoDiscovery: {$nodeGroupAutoDiscovery}
+  balanceSimilarNodeGroups: {$balanceSimilarNodeGroups}
+  skipNodesWithLocalStorage: {$skipNodesWithLocalStorage}
+  skipNodesWithSystemPods: {$skipNodesWithSystemPods}
+
+secrets:
+  myregistrykey:
+    name: {$name}
+    dockerconfigjson: {$value}
