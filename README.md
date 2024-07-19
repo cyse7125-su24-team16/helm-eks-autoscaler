@@ -1,1 +1,1 @@
-# helm-eks-autoscalerr
+# helm-eks-autoscaler
