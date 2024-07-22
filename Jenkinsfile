@@ -3,9 +3,9 @@ pipeline {
     environment {
         GITHUB_CREDENTIALS_ID = 'github_token'
         HELM_VERSION = '3.5.4'
-        DOCKER_HUB_USERNAME = 'anu398'
-        DOCKER_HUB_PASSWORD = 'dckr_pat_1XEm0AqyPtAIfAaW-BdQ7TK8fg8'
-        PATH = "${env.WORKSPACE}/bin:${env.PATH}"
+        DOCKER_CREDENTIALS_ID = 'docker-credentials' // Add this for Docker login
+        DOCKER_HUB_REPO = 'anu398/cluster-autoscaler' // Replace with your Docker Hub repository
+        NEW_VERSION = 'latest' // Update this with a dynamic version if needed
     }
     options {
         skipDefaultCheckout(true)
@@ -86,30 +86,61 @@ pipeline {
                 }
             }
         }
-        stage('Mirror Docker Image') {
+        stage('Setup Buildx') {
             steps {
                 script {
-                    def sourceImage = 'registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3'
-                    def destImage = 'anu398/cluster-autoscaler:v1.29.3'
-
-                    echo "Logging into Docker..."
-                    sh 'echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin'
-
-                    echo "Downloading and setting up crane..."
+                    // Setup Buildx for multi-platform builds
                     sh '''
-                    curl -LO https://github.com/google/go-containerregistry/releases/download/v0.10.0/crane-linux-amd64
-                    chmod +x crane-linux-amd64
-                    mv crane-linux-amd64 /var/lib/jenkins/workspace/EKS-Autoscaler-Job_PR-12/bin/crane
-                    file /var/lib/jenkins/workspace/EKS-Autoscaler-Job_PR-12/bin/crane
-                    /var/lib/jenkins/workspace/EKS-Autoscaler-Job_PR-12/bin/crane --help
-                    '''
+                    if docker buildx inspect mybuilder > /dev/null 2>&1; then
+                        docker buildx rm mybuilder
+                    fi
 
-                    echo "Mirroring image from $sourceImage to $destImage..."
-                    sh '/var/lib/jenkins/workspace/EKS-Autoscaler-Job_PR-12/bin/crane copy ' + sourceImage + ' ' + destImage
+                    # Setup Buildx for multi-platform builds
+                    docker run --privileged --rm tonistiigi/binfmt --install all
+                    docker buildx create --use --name mybuilder --driver docker-container
+                    docker buildx inspect mybuilder --bootstrap
+                    '''
                 }
             }
         }
+        stage('Clean Docker') {
+            steps {
+                script {
+                    // Clean up Docker space
+                    sh 'docker system prune -af'
+                    sh 'docker volume prune -f'
+                }
+            }
+        }
+        stage('Build and Push Docker Images') {
+            when {
+                allOf {
+                    branch 'main'
+                    not { changeRequest() }
+                }
+            }
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS_ID) {
+                        {
+                            sh '''
+                            docker run --privileged --rm tonistiigi/binfmt --install all
+                        
+                            # Setup Buildx
+                            docker buildx create --use --name mybuilder --driver docker-container
+                            docker buildx inspect mybuilder --bootstrap
+                        
+                            # Build and push the Autoscaler image
+                            docker buildx build --builder mybuilder -f Dockerfile -t ${DOCKER_HUB_REPO}:autoscaler-v1.29.3 --platform "linux/arm64,linux/amd64" . --push
 
+                            docker system prune -af
+                            docker volume prune -f
+                            '''
+                        }
+                    }
+                }
+            }
+        }
         stage('Semantic-Release') {
             when {
                 allOf {
