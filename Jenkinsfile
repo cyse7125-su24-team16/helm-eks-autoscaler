@@ -3,9 +3,8 @@ pipeline {
     environment {
         GITHUB_CREDENTIALS_ID = 'github_token'
         HELM_VERSION = '3.5.4'
-        DOCKER_HUB_USERNAME = 'anu398'
-        DOCKER_HUB_PASSWORD = 'dckr_pat_1XEm0AqyPtAIfAaW-BdQ7TK8fg8'
-        PATH = "${env.WORKSPACE}/bin:${env.PATH}"
+        DOCKER_USERNAME = 'anu398'
+        DOCKER_PASSWORD = 'dckr_pat_1XEm0AqyPtAIfAaW-BdQ7TK8fg8'
     }
     options {
         skipDefaultCheckout(true)
@@ -86,44 +85,32 @@ pipeline {
                 }
             }
         }
-        stage('Install Crane') {
+        stage('Build and Push Docker Image') {
             steps {
                 script {
-                    sh '''
-                    #!/bin/bash
-                    set -e
-                    mkdir -p ${WORKSPACE}/bin
-                    if ! command -v crane &> /dev/null; then
-                        echo "crane could not be found, installing..."
-                        curl -LO https://github.com/google/go-containerregistry/releases/download/v0.10.0/crane-linux-amd64
-                        # Verify the download
-                        FILE_HASH=$(sha256sum crane-linux-amd64 | awk '{ print $1 }')
-                        EXPECTED_HASH="d404d7e54a3e8a5d5e4d7c6dd6a21db86e1b5d8164e08a5a5148c6b6e8e663db"
-                        if [ "$FILE_HASH" != "$EXPECTED_HASH" ]; then
-                            echo "Downloaded file hash does not match expected hash. Exiting."
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub_credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        sh '''
+                        # Login to Docker Hub
+                        echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+
+                        # Define the source and destination images
+                        SOURCE_IMAGE=registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3
+                        DEST_IMAGE=anu398/cluster-autoscaler:v1.29.3
+
+                        # Ensure Docker Buildx is installed
+                        docker buildx version || {
+                            echo "Docker Buildx not found, please install Docker Buildx."
                             exit 1
-                        fi
-                        chmod +x crane-linux-amd64
-                        mv crane-linux-amd64 ${WORKSPACE}/bin/crane
-                    fi
-                    '''
-                }
-            }
-        }
-        stage('Mirror Docker Image') {
-            steps {
-                script {
-                    // Mirroring the Docker image
-                    sh '''
-                    #!/bin/bash
-                    set -e
-                    SOURCE_IMAGE="registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3"
-                    DEST_IMAGE="anu398/cluster-autoscaler:v1.29.3"
-                    echo "$DOCKER_HUB_PASSWORD" | docker login --username "$DOCKER_HUB_USERNAME" --password-stdin
-                    echo "Mirroring image from $SOURCE_IMAGE to $DEST_IMAGE..."
-                    crane copy "$SOURCE_IMAGE" "$DEST_IMAGE"
-                    echo "Image mirrored successfully."
-                    '''
+                        }
+
+                        # Create a new builder instance
+                        docker buildx create --name mybuilder --use
+                        docker buildx inspect --bootstrap
+
+                        # Build and push the Docker image using Buildx
+                        docker buildx build --platform linux/amd64,linux/arm64 -t $DEST_IMAGE --push -f ./Dockerfile .
+                        '''
+                    }
                 }
             }
         }
