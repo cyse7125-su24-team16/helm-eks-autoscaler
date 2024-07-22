@@ -3,7 +3,9 @@ pipeline {
     environment {
         GITHUB_CREDENTIALS_ID = 'github_token'
         HELM_VERSION = '3.5.4'
-        CRANE_VERSION = '0.12.0'
+        DOCKER_HUB_USERNAME = 'anu398'
+        DOCKER_HUB_PASSWORD = 'dckr_pat_1XEm0AqyPtAIfAaW-BdQ7TK8fg8'
+        PATH = "${env.WORKSPACE}/bin:${env.PATH}"
     }
     options {
         skipDefaultCheckout(true)
@@ -84,25 +86,27 @@ pipeline {
                 }
             }
         }
-        stage('Push Docker Image') {
+        stage('Mirror Docker Image') {
             steps {
                 script {
-                    // Install crane if not already available
+                    // Mirroring the Docker image
                     sh '''
-                        if ! command -v crane &> /dev/null
-                        then
-                            echo "crane could not be found, installing..."
-                            curl -LO https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/crane_amd64_darwin.tar.gz
-                            tar xzf crane_amd64_darwin.tar.gz
-                            sudo mv crane /usr/local/bin/crane
-                            rm crane_amd64_darwin.tar.gz
-                        else
-                            echo "crane is already installed"
-                        fi
+                    #!/bin/bash
+                    set -e
+                    SOURCE_IMAGE="registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3"
+                    DEST_IMAGE="anu398/cluster-autoscaler:v1.29.3"
+                    echo "$DOCKER_HUB_PASSWORD" | docker login --username "$DOCKER_HUB_USERNAME" --password-stdin
+                    if ! command -v crane &> /dev/null; then
+                        echo "crane could not be found, downloading..."
+                        mkdir -p ${WORKSPACE}/bin
+                        curl -LO https://github.com/google/go-containerregistry/releases/download/v0.10.0/crane-linux-amd64
+                        chmod +x crane-linux-amd64
+                        mv crane-linux-amd64 ${WORKSPACE}/bin/crane
+                    fi
+                    echo "Mirroring image from $SOURCE_IMAGE to $DEST_IMAGE..."
+                    crane copy "$SOURCE_IMAGE" "$DEST_IMAGE"
+                    echo "Image mirrored successfully."
                     '''
-
-                    // Push Docker image using crane
-                    sh 'crane copy registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3 anu398/cluster-autoscaler:v1.29.3'
                 }
             }
         }
