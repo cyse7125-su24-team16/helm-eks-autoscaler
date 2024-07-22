@@ -89,27 +89,27 @@ pipeline {
         stage('Mirror Docker Image') {
             steps {
                 script {
-                    // Mirroring the Docker image
+                    def sourceImage = 'registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3'
+                    def destImage = 'anu398/cluster-autoscaler:v1.29.3'
+
+                    echo "Logging into Docker..."
+                    sh 'echo $DOCKER_PASSWORD | docker login --username $DOCKER_USERNAME --password-stdin'
+
+                    echo "Downloading and setting up crane..."
                     sh '''
-                    #!/bin/bash
-                    set -e
-                    SOURCE_IMAGE="registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3"
-                    DEST_IMAGE="anu398/cluster-autoscaler:v1.29.3"
-                    echo "$DOCKER_HUB_PASSWORD" | docker login --username "$DOCKER_HUB_USERNAME" --password-stdin
-                    if ! command -v crane &> /dev/null; then
-                        echo "crane could not be found, downloading..."
-                        mkdir -p ${WORKSPACE}/bin
-                        curl -LO https://github.com/google/go-containerregistry/releases/download/v0.10.0/crane-linux-amd64
-                        chmod +x crane-linux-amd64
-                        mv crane-linux-amd64 ${WORKSPACE}/bin/crane
-                    fi
-                    echo "Mirroring image from $SOURCE_IMAGE to $DEST_IMAGE..."
-                    crane copy "$SOURCE_IMAGE" "$DEST_IMAGE"
-                    echo "Image mirrored successfully."
+                    curl -LO https://github.com/google/go-containerregistry/releases/download/v0.10.0/crane-linux-amd64
+                    chmod +x crane-linux-amd64
+                    mv crane-linux-amd64 /var/lib/jenkins/workspace/EKS-Autoscaler-Job_PR-12/bin/crane
+                    file /var/lib/jenkins/workspace/EKS-Autoscaler-Job_PR-12/bin/crane
+                    /var/lib/jenkins/workspace/EKS-Autoscaler-Job_PR-12/bin/crane --help
                     '''
+
+                    echo "Mirroring image from $sourceImage to $destImage..."
+                    sh '/var/lib/jenkins/workspace/EKS-Autoscaler-Job_PR-12/bin/crane copy ' + sourceImage + ' ' + destImage
                 }
             }
         }
+
         stage('Semantic-Release') {
             when {
                 allOf {
