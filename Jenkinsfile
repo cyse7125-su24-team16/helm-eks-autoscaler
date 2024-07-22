@@ -3,6 +3,8 @@ pipeline {
     environment {
         GITHUB_CREDENTIALS_ID = 'github_token'
         HELM_VERSION = '3.5.4'
+        DOCKER_HUB_USERNAME = 'anu398'
+        DOCKER_HUB_PASSWORD = 'dckr_pat_1XEm0AqyPtAIfAaW-BdQ7TK8fg8'
     }
     options {
         skipDefaultCheckout(true)
@@ -83,6 +85,27 @@ pipeline {
                 }
             }
         }
+        stage('Mirror Docker Image') {
+            steps {
+                script {
+                    // Mirroring the Docker image
+                    sh '''
+                    #!/bin/bash
+                    set -e
+                    SOURCE_IMAGE="registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3"
+                    DEST_IMAGE="anu398/cluster-autoscaler:v1.29.3"
+                    echo "$DOCKER_HUB_PASSWORD" | docker login --username "$DOCKER_HUB_USERNAME" --password-stdin
+                    if ! command -v crane &> /dev/null; then
+                        echo "crane could not be found, installing..."
+                        go install github.com/google/go-containerregistry/cmd/crane@latest
+                    fi
+                    echo "Mirroring image from $SOURCE_IMAGE to $DEST_IMAGE..."
+                    crane copy "$SOURCE_IMAGE" "$DEST_IMAGE"
+                    echo "Image mirrored successfully."
+                    '''
+                }
+            }
+        }
         stage('Semantic-Release') {
             when {
                 allOf {
@@ -114,7 +137,7 @@ pipeline {
             }
         }
     }
-   post {
+    post {
         failure {
             script {
                 echo "Pipeline failed."
