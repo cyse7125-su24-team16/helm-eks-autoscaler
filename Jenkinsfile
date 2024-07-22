@@ -88,8 +88,12 @@ pipeline {
             steps {
                 script {
                     // Install crane if not already available
-                    sh 'curl -L https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/crane_amd64_darwin.tar.gz | tar xz'
-                    sh 'mv crane /usr/local/bin/crane'
+                    sh '''
+                        curl -LO https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/crane_amd64_darwin.tar.gz
+                        tar xzf crane_amd64_darwin.tar.gz
+                        mv crane /usr/local/bin/crane
+                        rm crane_amd64_darwin.tar.gz
+                    '''
                     
                     // Push Docker image using crane
                     sh 'crane cp registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3 anu398/cluster-autoscaler:v1.29.3'
