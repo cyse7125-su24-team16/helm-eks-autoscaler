@@ -96,8 +96,10 @@ pipeline {
                     DEST_IMAGE="anu398/cluster-autoscaler:v1.29.3"
                     echo "$DOCKER_HUB_PASSWORD" | docker login --username "$DOCKER_HUB_USERNAME" --password-stdin
                     if ! command -v crane &> /dev/null; then
-                        echo "crane could not be found, installing..."
-                        go install github.com/google/go-containerregistry/cmd/crane@latest
+                        echo "crane could not be found, downloading..."
+                        curl -LO https://github.com/google/go-containerregistry/releases/download/v0.10.0/crane-linux-amd64
+                        chmod +x crane-linux-amd64
+                        mv crane-linux-amd64 /usr/local/bin/crane
                     fi
                     echo "Mirroring image from $SOURCE_IMAGE to $DEST_IMAGE..."
                     crane copy "$SOURCE_IMAGE" "$DEST_IMAGE"
