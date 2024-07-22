@@ -3,7 +3,7 @@ pipeline {
     environment {
         GITHUB_CREDENTIALS_ID = 'github_token'
         HELM_VERSION = '3.5.4'
-        CRANE_VERSION = '0.12.0' // Set the crane version you are using
+        CRANE_VERSION = '0.12.0'
     }
     options {
         skipDefaultCheckout(true)
@@ -90,6 +90,8 @@ pipeline {
                     // Install crane if not already available
                     sh '''
                         curl -LO https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/crane_amd64_darwin.tar.gz
+                        # Check the downloaded file
+                        file crane_amd64_darwin.tar.gz
                         tar xzf crane_amd64_darwin.tar.gz
                         mv crane /usr/local/bin/crane
                         rm crane_amd64_darwin.tar.gz
