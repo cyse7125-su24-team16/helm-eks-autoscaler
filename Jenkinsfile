@@ -3,8 +3,7 @@ pipeline {
     environment {
         GITHUB_CREDENTIALS_ID = 'github_token'
         HELM_VERSION = '3.5.4'
-        DOCKER_USERNAME = 'anu398'
-        DOCKER_PASSWORD = 'dckr_pat_1XEm0AqyPtAIfAaW-BdQ7TK8fg8'
+        DOCKER_CREDENTIALS_ID = 'dockerhub_credentials'  // Add your Docker Hub credentials ID
     }
     options {
         skipDefaultCheckout(true)
@@ -16,6 +15,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
+                    // Checkout the code
                     git credentialsId: GITHUB_CREDENTIALS_ID, url: 'https://github.com/cyse7125-su24-team16/helm-eks-autoscaler.git', branch: 'main'
                 }
             }
@@ -28,12 +28,16 @@ pipeline {
             }
             steps {
                 script {
+                    // Fetch the latest changes from the origin using credentials
                     withCredentials([usernamePassword(credentialsId: GITHUB_CREDENTIALS_ID, usernameVariable: 'GITHUB_USER', passwordVariable: 'GITHUB_TOKEN')]) {
                         sh 'git config --global credential.helper store'
                         sh 'echo "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com" > ~/.git-credentials'
+                        // Fetch all branches including PR branches
                         sh 'git fetch origin +refs/pull/*/head:refs/remotes/origin/pr/*'
+                        // Dynamically fetch the current PR branch name using environment variables
                         def prBranch = env.CHANGE_BRANCH
                         echo "PR Branch: ${prBranch}"
+                        // Checkout the PR branch
                         sh "git checkout -B ${prBranch} origin/pr/${env.CHANGE_ID}"
                     }
                 }
@@ -47,9 +51,12 @@ pipeline {
             }
             steps {
                 script {
+                    // Fetch the latest commit message in the PR branch
                     def latestCommitMessage = sh(script: "git log -1 --pretty=format:%s", returnStdout: true).trim()
                     echo "Latest commit message: ${latestCommitMessage}"
+                    // Regex for Conventional Commits
                     def pattern = ~/^\s*(feat|fix|docs|style|refactor|perf|test|chore)(\(.+\))?: .+\s*$/
+                    // Check the latest commit message
                     if (!pattern.matcher(latestCommitMessage).matches()) {
                         error "Commit message does not follow Conventional Commits: ${latestCommitMessage}"
                     }
@@ -64,10 +71,12 @@ pipeline {
             }
             steps {
                 script {
+                    // Run helm lint
                     def lintResult = sh(script: 'helm lint .', returnStatus: true)
                     if (lintResult != 0) {
                         error 'Helm lint failed'
                     }
+                    // Run helm template
                     def templateResult = sh(script: 'helm template .', returnStatus: true)
                     if (templateResult != 0) {
                         error 'Helm template failed'
@@ -78,33 +87,26 @@ pipeline {
         stage('Build and Push Docker Image') {
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub_credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sh '''
-                        set -ex
-
-                        # Check Docker Buildx installation
-                        if ! docker buildx version; then
-                            echo "Docker Buildx not found, installing..."
-                            mkdir -p ~/.docker/cli-plugins/
-                            curl -sSL https://github.com/docker/buildx/releases/download/v0.8.2/buildx-v0.8.2.linux-amd64 > ~/.docker/cli-plugins/docker-buildx
-                            chmod +x ~/.docker/cli-plugins/docker-buildx
-                        fi
-
-                        # Login to Docker Hub
-                        echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
-
-                        # Define the source and destination images
-                        SOURCE_IMAGE=registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3
-                        DEST_IMAGE=anu398/cluster-autoscaler:v1.29.3
-
-                        # Create a new builder instance if not already created
-                        docker buildx create --name mybuilder --use || true
-                        docker buildx inspect --bootstrap
-
-                        # Build and push the Docker image using Buildx
-                        docker buildx build --platform linux/amd64,linux/arm64 -t $DEST_IMAGE --push -f ./Dockerfile .
-                        '''
+                    // Set environment variables
+                    def sourceImage = 'registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.4'
+                    def destImage = 'anu398/cluster-autoscaler:v1.29.4'
+                    
+                    // Login to Docker Hub
+                    withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh "echo ${DOCKER_PASS} | docker login --username ${DOCKER_USER} --password-stdin"
                     }
+
+                    // Setup Docker Buildx
+                    sh '''
+                        mkdir -p ~/.docker
+                        echo '{"credsStore":"desktop"}' > ~/.docker/config.json
+                        docker buildx create --use
+                    '''
+
+                    // Build and push the Docker image with multi-platform support
+                    sh """
+                        docker buildx build --platform linux/amd64,linux/arm64 -t ${destImage} -f Dockerfile . --push
+                    """
                 }
             }
         }
@@ -122,8 +124,10 @@ pipeline {
                         def releaseOutput = sh(script: 'npx semantic-release --dry-run --json', returnStdout: true).trim()
                         def versionLine = releaseOutput.find(/Published release (\d+\.\d+\.\d+) on default channel/)
                         if (versionLine) {
+                            // Extract the new version
                             def newVersion = (versionLine =~ /(\d+\.\d+\.\d+)/)[0][0]
                             echo "New version: v${newVersion}"
+                            // Package and release Helm chart
                             sh """
                                 helm package --version ${newVersion} .
                                 gh release create 'v${newVersion}' *${newVersion}.tgz
