@@ -86,6 +86,36 @@ pipeline {
                 }
             }
         }
+        stage('Semantic-Release') {
+            when {
+                allOf {
+                    branch 'main'
+                    not { changeRequest() }
+                }
+            }
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'github_token', usernameVariable: 'GH_USERNAME', passwordVariable: 'GH_TOKEN')]) {
+                        env.GIT_LOCAL_BRANCH = 'main'
+                        def releaseOutput = sh(script: 'npx semantic-release --dry-run --json', returnStdout: true).trim()
+                        def versionLine = releaseOutput.find(/Published release (\d+\.\d+\.\d+) on default channel/)
+                        if (versionLine) {
+                            // Extract the new version
+                            def newVersion = (versionLine =~ /(\d+\.\d+\.\d+)/)[0][0]
+                            echo "New version: v${newVersion}"
+                            // Package and release Helm chart
+                            sh """
+                                helm package --version ${newVersion} .
+                                gh release create 'v${newVersion}' *${newVersion}.tgz
+                                rm *.tgz
+                            """
+                        } else {
+                            error "Failed to capture the new version from semantic-release."
+                        }
+                    }
+                }
+            }
+        }
         stage('Setup Buildx') {
             steps {
                 script {
@@ -137,36 +167,6 @@ pipeline {
                             docker system prune -af
                             docker volume prune -f
                             '''
-                        }
-                    }
-                }
-            }
-        }
-        stage('Semantic-Release') {
-            when {
-                allOf {
-                    branch 'main'
-                    not { changeRequest() }
-                }
-            }
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'github_token', usernameVariable: 'GH_USERNAME', passwordVariable: 'GH_TOKEN')]) {
-                        env.GIT_LOCAL_BRANCH = 'main'
-                        def releaseOutput = sh(script: 'npx semantic-release --dry-run --json', returnStdout: true).trim()
-                        def versionLine = releaseOutput.find(/Published release (\d+\.\d+\.\d+) on default channel/)
-                        if (versionLine) {
-                            // Extract the new version
-                            def newVersion = (versionLine =~ /(\d+\.\d+\.\d+)/)[0][0]
-                            echo "New version: v${newVersion}"
-                            // Package and release Helm chart
-                            sh """
-                                helm package --version ${newVersion} .
-                                gh release create 'v${newVersion}' *${newVersion}.tgz
-                                rm *.tgz
-                            """
-                        } else {
-                            error "Failed to capture the new version from semantic-release."
                         }
                     }
                 }
