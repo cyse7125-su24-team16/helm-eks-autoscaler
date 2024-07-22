@@ -86,7 +86,7 @@ pipeline {
                 }
             }
         }
-        tage('Setup Buildx') {
+        stage('Setup Buildx') {
             steps {
                 script {
                     // Setup Buildx for multi-platform builds
