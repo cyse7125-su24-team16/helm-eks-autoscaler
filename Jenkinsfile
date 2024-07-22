@@ -161,7 +161,7 @@ pipeline {
                             docker buildx inspect mybuilder --bootstrap
                         
                             # Build and push the Flyway migration image
-                            docker buildx build --builder mybuilder -f Dockerfile -t ${DOCKER_HUB_REPO}/cluster-autoscaler:${NEW_VERSION} --platform "linux/arm64,linux/amd64" . --push
+                            docker buildx build --builder mybuilder -f Dockerfile -t ${DOCKER_HUB_REPO}:consumer-database-${NEW_VERSION} --platform "linux/arm64,linux/amd64" . --push
 
 
                             docker system prune -af
