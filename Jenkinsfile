@@ -3,7 +3,7 @@ pipeline {
     environment {
         GITHUB_CREDENTIALS_ID = 'github_token'
         HELM_VERSION = '3.5.4'
-        DOCKER_CREDENTIALS_ID = 'dockerhub_credentials'  // Add your Docker Hub credentials ID
+        CRANE_VERSION = '0.12.0' // Set the crane version you are using
     }
     options {
         skipDefaultCheckout(true)
@@ -84,29 +84,15 @@ pipeline {
                 }
             }
         }
-        stage('Build and Push Docker Image') {
+        stage('Push Docker Image') {
             steps {
                 script {
-                    // Set environment variables
-                    def sourceImage = 'registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.4'
-                    def destImage = 'anu398/cluster-autoscaler:v1.29.4'
+                    // Install crane if not already available
+                    sh 'curl -L https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/crane_amd64_darwin.tar.gz | tar xz'
+                    sh 'mv crane /usr/local/bin/crane'
                     
-                    // Login to Docker Hub
-                    withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh "echo ${DOCKER_PASS} | docker login --username ${DOCKER_USER} --password-stdin"
-                    }
-
-                    // Setup Docker Buildx
-                    sh '''
-                        mkdir -p ~/.docker
-                        echo '{"credsStore":"desktop"}' > ~/.docker/config.json
-                        docker buildx create --use
-                    '''
-
-                    // Build and push the Docker image with multi-platform support
-                    sh """
-                        docker buildx build --platform linux/amd64,linux/arm64 -t ${destImage} -f Dockerfile . --push
-                    """
+                    // Push Docker image using crane
+                    sh 'crane cp registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3 anu398/cluster-autoscaler:v1.29.3'
                 }
             }
         }
