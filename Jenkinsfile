@@ -96,6 +96,13 @@ pipeline {
                     if ! command -v crane &> /dev/null; then
                         echo "crane could not be found, installing..."
                         curl -LO https://github.com/google/go-containerregistry/releases/download/v0.10.0/crane-linux-amd64
+                        # Verify the download
+                        FILE_HASH=$(sha256sum crane-linux-amd64 | awk '{ print $1 }')
+                        EXPECTED_HASH="d404d7e54a3e8a5d5e4d7c6dd6a21db86e1b5d8164e08a5a5148c6b6e8e663db"
+                        if [ "$FILE_HASH" != "$EXPECTED_HASH" ]; then
+                            echo "Downloaded file hash does not match expected hash. Exiting."
+                            exit 1
+                        fi
                         chmod +x crane-linux-amd64
                         mv crane-linux-amd64 ${WORKSPACE}/bin/crane
                     fi
