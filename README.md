@@ -1,4 +1,4 @@
-Here's an updated sample `README.md` file that reflects the configuration details from your configuration file:
+Here's an updated sample `README.md` file that reflects the configuration details from your configuration file
 
 ```markdown
 # Helm EKS Autoscaler
