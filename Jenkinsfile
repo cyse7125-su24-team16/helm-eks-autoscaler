@@ -90,6 +90,8 @@ pipeline {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub_credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                         sh '''
+                        set -ex
+                        
                         # Login to Docker Hub
                         echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
 
@@ -97,11 +99,13 @@ pipeline {
                         SOURCE_IMAGE=registry.k8s.io/autoscaling/cluster-autoscaler:v1.29.3
                         DEST_IMAGE=anu398/cluster-autoscaler:v1.29.3
 
-                        # Ensure Docker Buildx is installed
-                        docker buildx version || {
-                            echo "Docker Buildx not found, please install Docker Buildx."
-                            exit 1
-                        }
+                        # Check if Docker Buildx is installed
+                        if ! docker buildx version; then
+                            echo "Docker Buildx not found, installing..."
+                            mkdir -p ~/.docker/cli-plugins/
+                            curl -sSL https://github.com/docker/buildx/releases/download/v0.8.2/buildx-v0.8.2.linux-amd64 > ~/.docker/cli-plugins/docker-buildx
+                            chmod +x ~/.docker/cli-plugins/docker-buildx
+                        fi
 
                         # Create a new builder instance
                         docker buildx create --name mybuilder --use
