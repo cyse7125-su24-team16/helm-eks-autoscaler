@@ -3,9 +3,9 @@ pipeline {
     environment {
         GITHUB_CREDENTIALS_ID = 'github_token'
         HELM_VERSION = '3.5.4'
-        DOCKER_CREDENTIALS_ID = 'docker-credentials' // Add this for Docker login
-        DOCKER_HUB_REPO = 'anu398/cluster-autoscaler' // Replace with your Docker Hub repository
-        NEW_VERSION = 'latest' // Update this with a dynamic version if needed
+        DOCKER_CREDENTIALS_ID = 'docker-credentials' 
+        DOCKER_HUB_REPO = 'anu398/cluster-autoscaler'
+        NEW_VERSION = 'latest' 
     }
     options {
         skipDefaultCheckout(true)
@@ -86,7 +86,7 @@ pipeline {
                 }
             }
         }
-        stage('Setup Buildx') {
+        tage('Setup Buildx') {
             steps {
                 script {
                     // Setup Buildx for multi-platform builds
@@ -122,7 +122,7 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS_ID) {
-                        {
+                        withEnv(["NEW_VERSION=${NEW_VERSION}"]) {
                             sh '''
                             docker run --privileged --rm tonistiigi/binfmt --install all
                         
@@ -130,8 +130,8 @@ pipeline {
                             docker buildx create --use --name mybuilder --driver docker-container
                             docker buildx inspect mybuilder --bootstrap
                         
-                            # Build and push the Autoscaler image
-                            docker buildx build --builder mybuilder -f Dockerfile -t ${DOCKER_HUB_REPO}:autoscaler-v1.29.3 --platform "linux/arm64,linux/amd64" . --push
+                            # Build and push the Flyway migration image
+                            docker buildx build --builder mybuilder -f Dockerfile -t ${DOCKER_HUB_REPO}:consumer-database-${NEW_VERSION} --platform "linux/arm64,linux/amd64" . --push
 
                             docker system prune -af
                             docker volume prune -f
@@ -172,7 +172,7 @@ pipeline {
             }
         }
     }
-    post {
+   post {
         failure {
             script {
                 echo "Pipeline failed."
