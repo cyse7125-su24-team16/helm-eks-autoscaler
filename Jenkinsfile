@@ -103,6 +103,8 @@ pipeline {
                             // Extract the new version
                             def newVersion = (versionLine =~ /(\d+\.\d+\.\d+)/)[0][0]
                             echo "New version: v${newVersion}"
+                            // Set the newVersion as an environment variable
+                            env.NEW_VERSION = newVersion
                             // Package and release Helm chart
                             sh """
                                 helm package --version ${newVersion} .
@@ -154,7 +156,7 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS_ID) {
-                        withEnv(["NEW_VERSION=${newVersion}"]) {
+                        withEnv(["NEW_VERSION=${env.NEW_VERSION}"]) {
                             sh '''
                             docker run --privileged --rm tonistiigi/binfmt --install all
                         
