@@ -3,6 +3,9 @@ pipeline {
     environment {
         GITHUB_CREDENTIALS_ID = 'github_token'
         HELM_VERSION = '3.5.4'
+        DOCKER_HUB_REPO = '118a3025/csye_7125'
+        DOCKER_CREDENTIALS_ID = 'docker_credentials'
+        DOCKER_TAG = 'latest'
     }
     options {
         skipDefaultCheckout(true)
@@ -111,6 +114,69 @@ pipeline {
                         }
                     }
                 }
+            }
+        }
+        stage('Setup Buildx') {
+            steps {
+                script {
+                    // Setup Buildx for multi-platform builds
+                   sh '''
+                    if docker buildx inspect mybuilder > /dev/null 2>&1; then
+                        docker buildx rm mybuilder
+                    fi
+
+                    # Setup Buildx for multi-platform builds
+                    docker run --privileged --rm tonistiigi/binfmt --install all
+                    docker buildx create --use --name mybuilder --driver docker-container
+                    docker buildx inspect mybuilder --bootstrap
+                    '''
+                }
+            }
+        }
+
+        stage('Clean Docker') {
+            steps {
+                script {
+                    // Clean up Docker space
+                    sh 'docker system prune -af'
+                    sh 'docker volume prune -f'
+                }
+            }
+        }
+
+     stage('Build and Push Docker Images') {
+            when {
+                allOf {
+                    branch 'main'
+                    not { changeRequest() }
+                }
+            }
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_CREDENTIALS_ID) {
+                        withEnv(["NEW_VERSION=${newVersion}"]) {
+                            sh '''
+                            docker run --privileged --rm tonistiigi/binfmt --install all
+                        
+                            # Setup Buildx
+                            docker buildx create --use --name mybuilder --driver docker-container
+                            docker buildx inspect mybuilder --bootstrap
+                        
+                            # Build and push the Flyway migration image
+                            docker buildx build --builder mybuilder -f Dockerfile -t ${DOCKER_HUB_REPO}:Autoscaler-Mirror-${NEW_VERSION} --platform "linux/arm64,linux/amd64" . --push
+
+                            docker system prune -af
+                            docker volume prune -f
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
             }
         }
     }
