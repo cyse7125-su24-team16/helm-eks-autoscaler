@@ -42,3 +42,6 @@ secrets:
   myregistrykey:
     name: {$name}
     dockerconfigjson: {$value}
+
+podDisruptionBudget:
+  maxUnavailable: ${maxUnavailable}

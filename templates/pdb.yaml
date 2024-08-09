@@ -1,0 +1,17 @@
+{{- if .Values.podDisruptionBudget -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app.kubernetes.io/name: cluster-autoscaler
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  name: {{ .Release.Name }}-cluster-autoscaler
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- if .Values.podDisruptionBudget }}
+  {{ toYaml .Values.podDisruptionBudget | nindent 2 }}
+{{- end }}
+{{- end -}}
